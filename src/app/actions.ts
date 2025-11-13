@@ -4,9 +4,6 @@ import { z } from 'zod';
 import { getLabels, getModels } from '@/lib/data';
 import type { AllPredictionsResult, PredictionResult } from '@/lib/types';
 import { summarizePredictionResults } from '@/ai/flows/summarize-prediction-results';
-import * as tf from '@tensorflow/tfjs-node';
-import sharp from 'sharp';
-import path from 'path';
 
 const schema = z.object({
   image: z.instanceof(File).optional(),
@@ -21,24 +18,7 @@ type FormState = {
   error?: boolean;
 };
 
-let cnnModel: tf.LayersModel | null = null;
-const modelPath = path.resolve(process.cwd(), 'src/models/mobilenetv2_fruits_best.keras');
-
-async function loadCnnModel() {
-  if (!cnnModel) {
-    try {
-      console.log(`Loading model from: file://${modelPath}`);
-      cnnModel = await tf.loadLayersModel(`file://${modelPath}`);
-      console.log('Model loaded successfully');
-    } catch (e) {
-      console.error('Error loading Keras model:', e);
-      throw new Error('Could not load the CNN model.');
-    }
-  }
-  return cnnModel;
-}
-
-// Helper to shuffle array and get top probabilities (for mock models)
+// Helper to shuffle array and get top probabilities
 function getMockProbabilities(labels: string[], predictedLabel: string): PredictionResult['probabilities'] {
   let remainingProb = 1.0;
   
@@ -59,27 +39,6 @@ function getMockProbabilities(labels: string[], predictedLabel: string): Predict
   probabilities.push({ label: otherLabels[otherLabels.length - 1], prob: remainingProb, index: labels.indexOf(otherLabels[otherLabels.length - 1]) });
 
   return probabilities.sort((a, b) => b.prob - a.prob);
-}
-
-async function preprocessImage(imageBuffer: Buffer): Promise<tf.Tensor> {
-    const image = sharp(imageBuffer);
-    
-    const tensor = tf.tidy(() => {
-        // Decode the image into a tensor
-        let imgTensor = tf.node.decodeImage(imageBuffer, 3);
-        
-        // Resize the image
-        const resized = tf.image.resizeBilinear(imgTensor, [100, 100]);
-
-        // Normalize the image to [0, 1]
-        const normalized = resized.div(tf.scalar(255.0));
-
-        // Add a batch dimension
-        const batched = normalized.expandDims(0);
-        return batched;
-    });
-
-    return tensor;
 }
 
 
@@ -110,7 +69,6 @@ export async function predictAllModels(
   let imagePreview: string | undefined;
 
   if (imageUrl) {
-    // Handle data URI from sample images
     const base64Data = imageUrl.split(',')[1];
     imageBuffer = Buffer.from(base64Data, 'base64');
     imagePreview = imageUrl;
@@ -126,54 +84,22 @@ export async function predictAllModels(
   try {
     const [models, labels] = await Promise.all([getModels(), getLabels()]);
     
-    // Load the CNN model
-    const cnnModel = await loadCnnModel();
-
     const predictionPromises = models.map(async (model): Promise<PredictionResult> => {
       const startTime = performance.now();
       
-      if (model.id === 'cnn' && cnnModel) {
-        // --- REAL INFERENCE FOR CNN ---
-        const imageTensor = await preprocessImage(imageBuffer);
-        const predictionTensor = cnnModel.predict(imageTensor) as tf.Tensor;
-        const predictionData = await predictionTensor.data();
-        tf.dispose([imageTensor, predictionTensor]);
+      // MOCK INFERENCE FOR ALL MODELS
+      const predictedLabel = labels[Math.floor(Math.random() * labels.length)];
+      const probabilities = getMockProbabilities(labels, predictedLabel);
+      const endTime = performance.now();
+      const inferenceTime = endTime - startTime + (Math.random() * 15 + 5);
 
-        const probabilities = Array.from(predictionData).map((prob, index) => ({
-          prob,
-          index,
-          label: labels[index],
-        })).sort((a, b) => b.prob - a.prob);
-
-        const predictedLabel = probabilities[0].label;
-        const predictedIndex = probabilities[0].index;
-        
-        const endTime = performance.now();
-        const inferenceTime = endTime - startTime;
-
-        return {
-          model_id: model.id,
-          predicted_label: predictedLabel,
-          predicted_index: predictedIndex,
-          probabilities,
-          inference_time_ms: parseFloat(inferenceTime.toFixed(1)),
-        };
-
-      } else {
-        // --- MOCK INFERENCE FOR OTHER MODELS ---
-        const predictedLabel = labels[Math.floor(Math.random() * labels.length)];
-        const probabilities = getMockProbabilities(labels, predictedLabel);
-        const endTime = performance.now();
-        const inferenceTime = endTime - startTime + (Math.random() * 10);
-
-        return {
-          model_id: model.id,
-          predicted_label: predictedLabel,
-          predicted_index: labels.indexOf(predictedLabel),
-          probabilities,
-          inference_time_ms: parseFloat(inferenceTime.toFixed(1)),
-        };
-      }
+      return {
+        model_id: model.id,
+        predicted_label: predictedLabel,
+        predicted_index: labels.indexOf(predictedLabel),
+        probabilities,
+        inference_time_ms: parseFloat(inferenceTime.toFixed(1)),
+      };
     });
 
     const predictionResults = await Promise.all(predictionPromises);
