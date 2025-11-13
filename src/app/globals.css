@@ -86,3 +86,11 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .animate-text-gradient {
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+}

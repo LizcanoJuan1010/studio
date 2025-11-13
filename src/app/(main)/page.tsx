@@ -7,9 +7,9 @@ export default async function HomePage() {
   const allMetrics = await getGlobalMetrics();
 
   return (
-    <div className="flex flex-col gap-8 animate-fade-in-up">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight font-headline">
+    <div className="flex flex-col gap-8">
+      <div className="animate-fade-in-down">
+        <h1 className="text-4xl font-bold tracking-tight font-headline animate-text-gradient bg-gradient-to-r from-primary via-accent to-primary bg-[200%_auto]">
           Fruit Classification Model Comparator
         </h1>
         <p className="text-muted-foreground mt-2">
@@ -17,7 +17,7 @@ export default async function HomePage() {
         </p>
       </div>
 
-      <Card className="animate-fade-in" style={{ animationDelay: '100ms' }}>
+      <Card className="animate-fade-in" style={{ animationDelay: '200ms' }}>
           <CardHeader>
               <CardTitle className="font-headline text-xl">Descripción del Proyecto</CardTitle>
           </CardHeader>
@@ -41,7 +41,7 @@ export default async function HomePage() {
           </CardContent>
       </Card>
       
-      <Card className="animate-fade-in" style={{ animationDelay: '200ms' }}>
+      <Card className="animate-fade-in" style={{ animationDelay: '400ms' }}>
           <CardHeader>
               <CardTitle className="font-headline text-xl">Descripción del Dataset</CardTitle>
           </CardHeader>
@@ -53,7 +53,7 @@ export default async function HomePage() {
       </Card>
 
       <div>
-        <h2 className="text-2xl font-bold tracking-tight font-headline">
+        <h2 className="text-2xl font-bold tracking-tight font-headline animate-fade-in" style={{ animationDelay: '600ms' }}>
           Modelos Entrenados
         </h2>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-4">
@@ -62,7 +62,7 @@ export default async function HomePage() {
               key={model.id} 
               model={model} 
               metrics={allMetrics[model.id]} 
-              style={{ animationDelay: `${index * 100 + 300}ms` }}
+              style={{ animationDelay: `${index * 150 + 700}ms` }}
             />
           ))}
         </div>
