@@ -6,7 +6,8 @@ import type { AllPredictionsResult, PredictionResult } from '@/lib/types';
 import { summarizePredictionResults } from '@/ai/flows/summarize-prediction-results';
 
 const schema = z.object({
-  image: z.instanceof(File),
+  image: z.instanceof(File).optional(),
+  imageUrl: z.string().optional(),
 });
 
 type FormState = {
@@ -47,17 +48,23 @@ export async function predictAllModels(
 ): Promise<FormState> {
   const validatedFields = schema.safeParse({
     image: formData.get('image'),
+    imageUrl: formData.get('imageUrl'),
   });
 
   if (!validatedFields.success) {
-    return { message: 'Invalid image file.', error: true };
+    return { message: 'Invalid input.', error: true };
   }
   
-  const { image } = validatedFields.data;
+  const { image, imageUrl } = validatedFields.data;
 
-  if (image.size === 0) {
-    return { message: 'Please upload an image.', error: true };
+  if (!image && !imageUrl) {
+    return { message: 'Please upload or select an image.', error: true };
   }
+  
+  if (image && image.size === 0 && !imageUrl) {
+      return { message: 'Please upload an image.', error: true };
+  }
+
 
   try {
     const [models, labels] = await Promise.all([getModels(), getLabels()]);
@@ -87,8 +94,14 @@ export async function predictAllModels(
     // Call GenAI flow
     const aiSummary = await summarizePredictionResults({ results: predictionResults });
 
-    const arrayBuffer = await image.arrayBuffer();
-    const imagePreview = `data:${image.type};base64,${Buffer.from(arrayBuffer).toString('base64')}`;
+    let imagePreview: string | undefined;
+
+    if (imageUrl) {
+      imagePreview = imageUrl;
+    } else if (image) {
+      const arrayBuffer = await image.arrayBuffer();
+      imagePreview = `data:${image.type};base64,${Buffer.from(arrayBuffer).toString('base64')}`;
+    }
 
     return {
       message: 'Prediction successful.',

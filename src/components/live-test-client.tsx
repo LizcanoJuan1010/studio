@@ -1,16 +1,19 @@
 'use client';
 
-import { useActionState, useRef, useEffect } from 'react';
+import { useActionState, useRef, useEffect, useState } from 'react';
 import { predictAllModels } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { UploadCloud, LoaderCircle, AlertTriangle, Sparkles } from 'lucide-react';
+import { UploadCloud, LoaderCircle, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import { PredictionCard } from './prediction-card';
 import { useToast } from '@/hooks/use-toast';
+import { PlaceHolderImages, ImagePlaceholder } from '@/lib/placeholder-images';
+import { cn } from '@/lib/utils';
+import { Separator } from './ui/separator';
 
 const initialState = {
   message: '',
@@ -19,7 +22,9 @@ const initialState = {
 export function LiveTestClient() {
   const [state, formAction, isPending] = useActionState(predictAllModels, initialState);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const { toast } = useToast();
+  const [selectedImage, setSelectedImage] = useState<ImagePlaceholder | null>(null);
 
   useEffect(() => {
     if (state.error) {
@@ -29,7 +34,35 @@ export function LiveTestClient() {
             description: state.message,
         })
     }
-  }, [state, toast])
+  }, [state, toast]);
+
+  const handleImageSelect = (image: ImagePlaceholder) => {
+    setSelectedImage(image);
+    // Clear the file input if a sample image is selected
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    if (selectedImage) {
+      formData.set('imageUrl', selectedImage.imageUrl);
+      // Ensure no empty file is sent
+      const fileInput = formData.get('image') as File;
+      if (fileInput && fileInput.size === 0) {
+        formData.delete('image');
+      }
+    }
+    formAction(formData);
+  };
+  
+  const handleFileChange = () => {
+    // Deselect sample image if a file is chosen
+    setSelectedImage(null);
+  };
+
 
   return (
     <div className="flex flex-col gap-8 animate-fade-in-up">
@@ -38,19 +71,54 @@ export function LiveTestClient() {
           Live Prediction Test
         </h1>
         <p className="text-muted-foreground mt-2">
-          Upload an image of a fruit to get predictions from all available models in real-time.
+          Upload an image of a fruit or select a sample image to get predictions from all available models in real-time.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline text-xl">Upload Image</CardTitle>
+          <CardTitle className="font-headline text-xl">Select a Test Image</CardTitle>
+          <CardDescription>Choose one of the sample images below to test the models.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={formAction} className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                {PlaceHolderImages.map((image) => (
+                    <button 
+                        key={image.id}
+                        onClick={() => handleImageSelect(image)}
+                        className={cn(
+                            "relative aspect-square w-full rounded-lg overflow-hidden border-2 transition-all",
+                            selectedImage?.id === image.id ? 'border-primary ring-2 ring-primary ring-offset-2' : 'border-border hover:border-primary'
+                        )}
+                    >
+                        <Image 
+                            src={image.imageUrl} 
+                            alt={image.description} 
+                            fill 
+                            className="object-cover"
+                            sizes="(max-width: 768px) 50vw, (max-width: 1024px) 25vw, 12.5vw"
+                        />
+                    </button>
+                ))}
+            </div>
+        </CardContent>
+      </Card>
+      
+      <div className="relative flex items-center justify-center">
+        <Separator className="w-full" />
+        <span className="absolute bg-background px-4 text-sm text-muted-foreground font-medium">OR</span>
+      </div>
+
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline text-xl">Upload Your Own Image</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form ref={formRef} onSubmit={handleFormSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="image">Fruit Image</Label>
-              <Input id="image" name="image" type="file" accept="image/*" ref={fileInputRef} required />
+              <Input id="image" name="image" type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} />
             </div>
             <Button type="submit" disabled={isPending} className="w-full md:w-auto">
               {isPending ? (

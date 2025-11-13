@@ -1,3 +1,52 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "apple",
+      "description": "A red apple",
+      "imageUrl": "https://images.unsplash.com/photo-1589217157232-464b505b197f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxhcHBsZXxlbnwwfHx8fDE3NjI5NjAwMjJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "apple"
+    },
+    {
+      "id": "banana",
+      "description": "A ripe banana",
+      "imageUrl": "https://images.unsplash.com/photo-1481349518771-20055b2a7b24?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxiYW5hbmF8ZW58MHx8fHwxNzYyOTA4NDY2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "banana"
+    },
+    {
+      "id": "orange",
+      "description": "A juicy orange",
+      "imageUrl": "https://images.unsplash.com/photo-1580052614034-c55d20bfee3b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxvcmFuZ2V8ZW58MHx8fHwxNzYzMDA5NTg1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "orange"
+    },
+    {
+      "id": "strawberry",
+      "description": "A red strawberry",
+      "imageUrl": "https://images.unsplash.com/photo-1554118879-e459bb1fe1ca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxzdHJhd2JlcnJ5fGVufDB8fHx8MTc2MzAwOTU4NXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "strawberry"
+    },
+    {
+      "id": "kiwi",
+      "description": "A kiwi fruit",
+      "imageUrl": "https://images.unsplash.com/photo-1573066778058-03dbee2c5a0c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8a2l3aXxlbnwwfHx8fDE3NjMwMDk1ODV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "kiwi"
+    },
+    {
+      "id": "pineapple",
+      "description": "A pineapple",
+      "imageUrl": "https://images.unsplash.com/photo-1621409443141-46c42dc0afb5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwaW5lYXBwbGV8ZW58MHx8fHwxNzYyOTEzNzc1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "pineapple"
+    },
+    {
+      "id": "grapes",
+      "description": "A bunch of grapes",
+      "imageUrl": "https://images.unsplash.com/photo-1539519532614-723937382b86?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxncmFwZXN8ZW58MHx8fHwxNzYzMDA5NTg1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "grapes"
+    },
+    {
+      "id": "mango",
+      "description": "A ripe mango",
+      "imageUrl": "https://images.unsplash.com/photo-1582655299221-2b6bff351df0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxtYW5nb3xlbnwwfHx8fDE3NjI5MTM3NzR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "mango"
+    }
+  ]
 }
