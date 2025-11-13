@@ -9,29 +9,38 @@ type ModelPageProps = {
 };
 
 export async function generateMetadata({ params }: ModelPageProps) {
-    const model = await getModelById(params.model_id);
-    if (!model) {
+    try {
+        const model = await getModelById(params.model_id);
+        if (!model) {
+            return { title: 'Model Not Found' };
+        }
+        return { title: `${model.name} Details` };
+    } catch (error) {
         return { title: 'Model Not Found' };
     }
-    return { title: `${model.name} Details` };
 }
 
 export default async function ModelPage({ params }: ModelPageProps) {
   const { model_id } = params;
 
+  const model = await getModelById(model_id);
+  if (!model) {
+    notFound();
+  }
+
   try {
-    const [model, allGlobalMetrics, perClassMetrics, confusionMatrix] = await Promise.all([
-      getModelById(model_id),
+    const [allGlobalMetrics, perClassMetrics, confusionMatrix] = await Promise.all([
       getGlobalMetrics(),
       getPerClassMetrics(model_id),
       getConfusionMatrix(model_id),
     ]);
-
-    if (!model) {
-      notFound();
-    }
     
     const globalMetrics = allGlobalMetrics[model.id as keyof typeof allGlobalMetrics];
+
+    if (!globalMetrics || !perClassMetrics || !confusionMatrix) {
+        // This case handles if a data file is missing for a valid model id
+        notFound();
+    }
 
     return (
         <ModelDetailClient 
@@ -48,9 +57,13 @@ export default async function ModelPage({ params }: ModelPageProps) {
 }
 
 export async function generateStaticParams() {
-    const models = await getModels();
-   
-    return models.map((model) => ({
-      model_id: model.id,
-    }));
+    try {
+        const models = await getModels();
+        return models.map((model) => ({
+          model_id: model.id,
+        }));
+    } catch (error) {
+        console.error('Failed to generate static params for models:', error);
+        return [];
+    }
 }

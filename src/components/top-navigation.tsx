@@ -37,7 +37,7 @@ export function TopNavigation() {
     <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 z-50">
       <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
         <Link
-          href="#"
+          href="/"
           className="flex items-center gap-2 text-lg font-semibold md:text-base text-primary"
         >
           <Grape className="h-6 w-6" />
@@ -49,7 +49,7 @@ export function TopNavigation() {
             href={link.href}
             className={cn(
                 "transition-colors hover:text-foreground",
-                pathname === link.href || (link.href.startsWith('/models') && pathname.startsWith(link.href)) ? 'text-foreground' : 'text-muted-foreground'
+                pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href)) ? 'text-foreground font-semibold' : 'text-muted-foreground'
             )}
           >
             {link.label}

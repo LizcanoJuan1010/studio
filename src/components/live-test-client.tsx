@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useActionState, useRef, useEffect, useState } from 'react';
@@ -7,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { UploadCloud, LoaderCircle, Sparkles } from 'lucide-react';
+import { UploadCloud, LoaderCircle, Sparkles, XCircle } from 'lucide-react';
 import Image from 'next/image';
 import { PredictionCard } from './prediction-card';
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +18,7 @@ import { Separator } from './ui/separator';
 
 const initialState = {
   message: '',
+  error: false,
 };
 
 export function LiveTestClient({ testImages }: { testImages: TestImage[] }) {
@@ -25,12 +27,13 @@ export function LiveTestClient({ testImages }: { testImages: TestImage[] }) {
   const formRef = useRef<HTMLFormElement>(null);
   const { toast } = useToast();
   const [selectedImage, setSelectedImage] = useState<TestImage | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
-    if (state.error) {
+    if (state.message && state.error) {
         toast({
             variant: "destructive",
-            title: "Error",
+            title: "Prediction Error",
             description: state.message,
         })
     }
@@ -38,6 +41,7 @@ export function LiveTestClient({ testImages }: { testImages: TestImage[] }) {
 
   const handleImageSelect = (image: TestImage) => {
     setSelectedImage(image);
+    setImagePreview(image.imageUrl);
     // Clear the file input if a sample image is selected
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -47,20 +51,38 @@ export function LiveTestClient({ testImages }: { testImages: TestImage[] }) {
   const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    
+    const file = formData.get('image') as File;
+    const hasFile = file && file.size > 0;
+
+    if (!selectedImage && !hasFile) {
+        toast({
+            variant: "destructive",
+            title: "No Image Selected",
+            description: "Please select a sample image or upload your own.",
+        });
+        return;
+    }
+
     if (selectedImage) {
       formData.set('imageUrl', selectedImage.imageUrl);
-      // Ensure no empty file is sent
-      const fileInput = formData.get('image') as File;
-      if (fileInput && fileInput.size === 0) {
+      if (hasFile) {
         formData.delete('image');
       }
     }
     formAction(formData);
   };
   
-  const handleFileChange = () => {
-    // Deselect sample image if a file is chosen
-    setSelectedImage(null);
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedImage(null);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
 
@@ -81,26 +103,36 @@ export function LiveTestClient({ testImages }: { testImages: TestImage[] }) {
           <CardDescription>Choose one of the sample images below to test the models.</CardDescription>
         </CardHeader>
         <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-                {testImages.map((image) => (
-                    <button 
-                        key={image.id}
-                        onClick={() => handleImageSelect(image)}
-                        className={cn(
-                            "relative aspect-square w-full rounded-lg overflow-hidden border-2 transition-all",
-                            selectedImage?.id === image.id ? 'border-primary ring-2 ring-primary ring-offset-2' : 'border-border hover:border-primary'
-                        )}
-                    >
-                        <Image 
-                            src={image.imageUrl} 
-                            alt={image.description} 
-                            fill 
-                            className="object-cover"
-                            sizes="(max-width: 768px) 50vw, (max-width: 1024px) 25vw, 12.5vw"
-                        />
-                    </button>
-                ))}
-            </div>
+            {testImages.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+                    {testImages.map((image) => (
+                        <button 
+                            key={image.id}
+                            onClick={() => handleImageSelect(image)}
+                            className={cn(
+                                "relative aspect-square w-full rounded-lg overflow-hidden border-2 transition-all",
+                                selectedImage?.id === image.id ? 'border-primary ring-2 ring-primary ring-offset-2' : 'border-border hover:border-primary'
+                            )}
+                        >
+                            <Image 
+                                src={image.imageUrl} 
+                                alt={image.description} 
+                                fill 
+                                className="object-cover"
+                                sizes="(max-width: 768px) 50vw, (max-width: 1024px) 25vw, 12.5vw"
+                            />
+                        </button>
+                    ))}
+                </div>
+            ) : (
+                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center">
+                    <XCircle className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <h3 className="mt-4 text-lg font-semibold">No Test Images Found</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Could not load images from the `src/lib/Test` directory.
+                    </p>
+                </div>
+            )}
         </CardContent>
       </Card>
       
@@ -115,11 +147,23 @@ export function LiveTestClient({ testImages }: { testImages: TestImage[] }) {
           <CardTitle className="font-headline text-xl">Upload Your Own Image</CardTitle>
         </CardHeader>
         <CardContent>
-          <form ref={formRef} onSubmit={handleFormSubmit} className="space-y-4">
+          <form ref={formRef} onSubmit={handleFormSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="image">Fruit Image</Label>
               <Input id="image" name="image" type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} />
             </div>
+            
+            {imagePreview && !isPending && (
+                <div className="relative aspect-square max-w-xs mx-auto w-full animate-fade-in">
+                    <Image 
+                        src={imagePreview} 
+                        alt="Image preview" 
+                        fill 
+                        className="rounded-lg object-contain"
+                    />
+                </div>
+            )}
+
             <Button type="submit" disabled={isPending} className="w-full md:w-auto">
               {isPending ? (
                 <>
