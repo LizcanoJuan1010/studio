@@ -1,5 +1,4 @@
 import type {NextConfig} from 'next';
-import path from 'path';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -30,14 +29,6 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
-  },
-  webpack: (config) => {
-    // Solves the "Unknown module type" error for @mapbox/node-pre-gyp
-    config.resolve.alias['@mapbox/node-pre-gyp/lib/util/nw-pre-gyp/index.html'] = path.resolve(
-      __dirname,
-      'src/lib/empty-module.js'
-    );
-    return config;
   },
 };
 
