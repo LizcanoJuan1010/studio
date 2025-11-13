@@ -22,13 +22,12 @@ type FormState = {
 };
 
 let cnnModel: tf.LayersModel | null = null;
-const modelPath = path.join(process.cwd(), 'src', 'app', '(main)', 'models', 'mobilenetv2_fruits_best.keras');
+const modelPath = path.resolve(process.cwd(), 'src/models/mobilenetv2_fruits_best.keras');
 
 async function loadCnnModel() {
   if (!cnnModel) {
     try {
-      console.log(`Loading model from: ${modelPath}`);
-      // @ts-ignore - tf.loadLayersModel is valid in tfjs-node
+      console.log(`Loading model from: file://${modelPath}`);
       cnnModel = await tf.loadLayersModel(`file://${modelPath}`);
       console.log('Model loaded successfully');
     } catch (e) {
@@ -64,7 +63,6 @@ function getMockProbabilities(labels: string[], predictedLabel: string): Predict
 
 async function preprocessImage(imageBuffer: Buffer): Promise<tf.Tensor> {
     const image = sharp(imageBuffer);
-    const metadata = await image.metadata();
     
     const tensor = tf.tidy(() => {
         // Decode the image into a tensor
