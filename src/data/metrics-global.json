@@ -8,9 +8,9 @@
     "model_size_mb": 20.3
   },
   "cnn_transfer": {
-    "accuracy": 0.987,
-    "f1_macro": 0.98,
-    "f1_micro": 0.987,
+    "accuracy": 0.9856,
+    "f1_macro": 0.9835,
+    "f1_micro": 0.9856,
     "avg_inference_time_ms": 8.2,
     "model_size_mb": 5.1
   },
