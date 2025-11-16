@@ -63,22 +63,6 @@ export default async function HomePage() {
               </p>
           </CardContent>
       </Card>
-
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight font-headline animate-fade-in" style={{ animationDelay: '600ms' }}>
-          Modelos Entrenados
-        </h2>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-4">
-          {models.map((model, index) => (
-            <ModelCard 
-              key={model.id} 
-              model={model} 
-              metrics={allMetrics[model.id]} 
-              style={{ animationDelay: `${index * 150 + 700}ms` }}
-            />
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
