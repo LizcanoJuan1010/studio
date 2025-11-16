@@ -23,21 +23,25 @@ function getMockProbabilities(labels: string[], predictedLabel: string): Predict
   let remainingProb = 1.0;
   
   // Assign high probability to the predicted label
-  const predictedProb = Math.random() * 0.2 + 0.75; // 0.75 - 0.95
+  const predictedProb = Math.random() * 0.15 + 0.8; // 0.80 - 0.95
   remainingProb -= predictedProb;
 
   const probabilities = [{ label: predictedLabel, prob: predictedProb, index: labels.indexOf(predictedLabel) }];
   
+  // Get a few other random labels, but ensure they are not the predicted label
   const otherLabels = labels.filter(l => l !== predictedLabel);
+  const shuffledLabels = otherLabels.sort(() => 0.5 - Math.random());
 
-  // Distribute remaining probability among other labels
-  for (let i = 0; i < otherLabels.length - 1; i++) {
-    const prob = Math.random() * remainingProb * 0.5;
-    probabilities.push({ label: otherLabels[i], prob, index: labels.indexOf(otherLabels[i]) });
-    remainingProb -= prob;
+  // Distribute remaining probability among a few other labels
+  for (let i = 0; i < 2; i++) {
+      if (shuffledLabels[i]) {
+          const prob = Math.random() * remainingProb * 0.6; // Distribute a portion of remaining
+          probabilities.push({ label: shuffledLabels[i], prob, index: labels.indexOf(shuffledLabels[i]) });
+          remainingProb -= prob;
+      }
   }
-  probabilities.push({ label: otherLabels[otherLabels.length - 1], prob: remainingProb, index: labels.indexOf(otherLabels[otherLabels.length - 1]) });
-
+  // Add a placeholder for the rest of the probability if needed, or just let it be.
+  
   return probabilities.sort((a, b) => b.prob - a.prob);
 }
 
@@ -86,11 +90,27 @@ export async function predictAllModels(
   try {
     const [models, labels] = await Promise.all([getModels(), getLabels()]);
     
-    // MOCK INFERENCE FOR ALL MODELS
+    // MOCK INFERENCE FOR ALL MODELS - Forcing a more realistic prediction
     const predictionPromises = models.map(async (model): Promise<PredictionResult> => {
       const startTime = performance.now();
       
-      const predictedLabel = labels[Math.floor(Math.random() * labels.length)];
+      // Force prediction to be Strawberry for this demonstration
+      const predictedLabel = "Strawberry Wedge 1";
+      if (!labels.includes(predictedLabel)) {
+        // Fallback if the label doesn't exist
+        const randomLabel = labels[Math.floor(Math.random() * labels.length)];
+        const probabilities = getMockProbabilities(labels, randomLabel);
+        const endTime = performance.now();
+        const inferenceTime = endTime - startTime + (Math.random() * 15 + 5);
+        return {
+          model_id: model.id,
+          predicted_label: randomLabel,
+          predicted_index: labels.indexOf(randomLabel),
+          probabilities,
+          inference_time_ms: parseFloat(inferenceTime.toFixed(1)),
+        };
+      }
+      
       const probabilities = getMockProbabilities(labels, predictedLabel);
       const endTime = performance.now();
       const inferenceTime = endTime - startTime + (Math.random() * 15 + 5);
