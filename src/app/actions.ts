@@ -1,8 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { getLabels, getTestImages } from '@/lib/data';
-import type { AllPredictionsResult, PredictionResult, Model, TestImage } from '@/lib/types';
+import type { AllPredictionsResult, PredictionResult } from '@/lib/types';
 import { summarizePredictionResults } from '@/ai/flows/summarize-prediction-results';
 
 const schema = z.object({
@@ -33,7 +32,7 @@ export async function predictAllModels(
     return { message: 'Invalid input.', error: true };
   }
   
-  const { image, imageUrl, selectedImageId } = validatedFields.data;
+  const { image, imageUrl } = validatedFields.data;
 
   if ((!image || image.size === 0) && !imageUrl) {
     return { message: 'Please upload or select an image.', error: true };
@@ -41,39 +40,43 @@ export async function predictAllModels(
 
   let imagePreview: string | undefined;
   let apiFormData = new FormData();
+  let fileToUpload: File;
 
   if (imageUrl) {
     imagePreview = imageUrl;
-    // Since we're using a sample image, we need to fetch it and create a File object
-    const response = await fetch(imageUrl);
-    const blob = await response.blob();
-    const fileName = selectedImageId || 'image.jpg';
-    const file = new File([blob], fileName, { type: blob.type });
-    apiFormData.append('file', file);
-
+    try {
+      const response = await fetch(imageUrl);
+      if (!response.ok) throw new Error('Failed to fetch sample image');
+      const blob = await response.blob();
+      fileToUpload = new File([blob], 'image.jpg', { type: blob.type });
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error fetching sample image.';
+      return { message: `Could not load sample image: ${errorMessage}`, error: true };
+    }
   } else if (image) {
-    const arrayBuffer = await image.arrayBuffer();
-    const imageBuffer = Buffer.from(arrayBuffer);
-    imagePreview = `data:${image.type};base64,${imageBuffer.toString('base64')}`;
-    apiFormData.append('file', image);
+    imagePreview = URL.createObjectURL(image);
+    fileToUpload = image;
   } else {
     return { message: 'No image provided.', error: true };
   }
-
+  
+  apiFormData.append('file', fileToUpload);
 
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://api:8000';
-    console.log(`Calling API at: ${apiUrl}/predict/`);
-
-    const response = await fetch(`${apiUrl}/predict/`, {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/predict';
+    console.log(`Calling API at: ${apiUrl}`);
+    
+    const response = await fetch(apiUrl, {
         method: 'POST',
         body: apiFormData,
+        // Important: Don't set Content-Type header manually when using FormData
+        // The browser will set it with the correct boundary.
     });
 
     if (!response.ok) {
         const errorBody = await response.text();
         console.error('API Error Response:', errorBody);
-        throw new Error(`Prediction failed: ${response.statusText}`);
+        throw new Error(`Prediction request failed with status ${response.status}: ${response.statusText}`);
     }
     
     const predictionResults: PredictionResult[] = await response.json();
@@ -82,16 +85,21 @@ export async function predictAllModels(
     
     // Call GenAI flow for summary
     const aiSummary = await summarizePredictionResults({ results: predictionResults });
+    
+    // Convert local URL to base64 for state to avoid client-side issues
+    const imageBuffer = await fileToUpload.arrayBuffer();
+    const imageBase64 = Buffer.from(imageBuffer).toString('base64');
+    const imagePreviewForState = `data:${fileToUpload.type};base64,${imageBase64}`;
 
     return {
       message: 'Prediction successful.',
       predictions: allPredictions,
       summary: aiSummary.summary,
-      imagePreview,
+      imagePreview: imagePreviewForState,
     };
   } catch (e) {
-    console.error(e);
-    const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred during prediction.';
+    console.error('Error during prediction fetch:', e);
+    const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
     return { message: `Failed to connect to the prediction backend. ${errorMessage}`, error: true };
   }
 }
