@@ -42,6 +42,7 @@ export async function predictAllModels(
 
   if (imageUrl) {
     try {
+      // For sample images, fetch the data from the base64 URL
       const response = await fetch(imageUrl);
       if (!response.ok) throw new Error('Failed to fetch sample image');
       const blob = await response.blob();
@@ -60,6 +61,7 @@ export async function predictAllModels(
   apiFormData.append('file', fileToUpload);
 
   try {
+    // The backend now runs on localhost:8001
     const apiHost = process.env.API_HOST || 'localhost';
     const apiPort = process.env.API_PORT || '8001';
     const apiUrl = `http://${apiHost}:${apiPort}/predict/`;
@@ -98,6 +100,6 @@ export async function predictAllModels(
   } catch (e) {
     console.error('Error during prediction fetch:', e);
     const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
-    return { message: `Failed to connect to the prediction backend. ${errorMessage}`, error: true };
+    return { message: `Failed to connect to the prediction backend. Make sure the backend is running. Details: ${errorMessage}`, error: true };
   }
 }
