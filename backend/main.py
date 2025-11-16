@@ -28,19 +28,24 @@ CLASS_NAMES = []
 def load_models():
     global SCALER, PCA, CLASS_NAMES
 
+    model_dir = './models'
+    print(f"Loading models from: {os.path.abspath(model_dir)}")
+
     # Load Keras models
-    MODELS['cnn_simple'] = tf.keras.models.load_model('./models/cnn_simple_model.keras')
-    MODELS['cnn_transfer'] = tf.keras.models.load_model('./models/mobilenetv2_fruits_best.keras')
+    MODELS['cnn_simple'] = tf.keras.models.load_model(os.path.join(model_dir, 'cnn_simple_model.keras'))
+    MODELS['cnn_transfer'] = tf.keras.models.load_model(os.path.join(model_dir, 'mobilenetv2_fruits_best.keras'))
 
     # Load SVM bundle
-    svm_bundle = joblib.load("./models/svm_model.joblib")
+    svm_bundle_path = os.path.join(model_dir, "svm_model.joblib")
+    svm_bundle = joblib.load(svm_bundle_path)
     SCALER = svm_bundle["scaler"]
     PCA = svm_bundle["pca"]
     MODELS['svm'] = svm_bundle["model"]
     CLASS_NAMES = svm_bundle["class_names"]
 
     # Load XGBoost model
-    MODELS['boosting'] = joblib.load("./models/boosting_model.pkl")
+    xgboost_path = os.path.join(model_dir, "boosting_model.pkl")
+    MODELS['boosting'] = joblib.load(xgboost_path)
     print("All models loaded successfully.")
 
 load_models()
@@ -94,19 +99,19 @@ async def predict_svm(image: Image.Image):
 
     # Note: SVM in scikit-learn might not directly provide probabilities for all kernels without configuration.
     # We will simulate this for consistency in the output format.
-    y_pred = MODELS['svm'].predict(X_pca)[0]
+    y_pred_proba = MODELS['svm'].predict_proba(X_pca)
     inference_time = (time.time() - start_time) * 1000
 
-    predicted_index = int(y_pred)
-    predicted_label = CLASS_NAMES[predicted_index]
+    top_indices = np.argsort(y_pred_proba[0])[-3:][::-1]
+    top_probs = [y_pred_proba[0][i] for i in top_indices]
 
-    # Simulate probabilities
-    probabilities = [{"label": predicted_label, "index": predicted_index, "prob": 0.9 + np.random.rand() * 0.1}]
-    # Add two other random labels
-    other_indices = np.random.choice([i for i in range(len(CLASS_NAMES)) if i != predicted_index], 2, replace=False)
-    probabilities.append({"label": CLASS_NAMES[other_indices[0]], "index": int(other_indices[0]), "prob": np.random.rand() * 0.05})
-    probabilities.append({"label": CLASS_NAMES[other_indices[1]], "index": int(other_indices[1]), "prob": np.random.rand() * 0.05})
-    probabilities.sort(key=lambda x: x['prob'], reverse=True)
+    probabilities = [
+        {"label": CLASS_NAMES[int(i)], "index": int(i), "prob": float(p)}
+        for i, p in zip(top_indices, top_probs)
+    ]
+    
+    predicted_index = top_indices[0]
+    predicted_label = CLASS_NAMES[int(predicted_index)]
 
 
     return {
@@ -150,10 +155,10 @@ async def create_upload_file(file: UploadFile = File(...)):
     image = Image.open(io.BytesIO(contents)).convert('RGB')
     
     # Run predictions for all models
-    cnn_simple_pred = await predict_cnn('cnn_simple', image)
-    cnn_transfer_pred = await predict_cnn('cnn_transfer', image)
-    svm_pred = await predict_svm(image)
-    boosting_pred = await predict_boosting(image)
+    cnn_simple_pred = await predict_cnn('cnn_simple', image.copy())
+    cnn_transfer_pred = await predict_cnn('cnn_transfer', image.copy())
+    svm_pred = await predict_svm(image.copy())
+    boosting_pred = await predict_boosting(image.copy())
     
     return [cnn_simple_pred, cnn_transfer_pred, svm_pred, boosting_pred]
 

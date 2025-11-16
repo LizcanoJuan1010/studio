@@ -61,7 +61,7 @@ export async function predictAllModels(
   apiFormData.append('file', fileToUpload);
 
   try {
-    // The backend now runs on localhost:8001
+    // Docker networking: 'api' is the service name, port 8000 is internal
     const apiHost = process.env.API_HOST || 'localhost';
     const apiPort = process.env.API_PORT || '8001';
     const apiUrl = `http://${apiHost}:${apiPort}/predict/`;
@@ -100,6 +100,6 @@ export async function predictAllModels(
   } catch (e) {
     console.error('Error during prediction fetch:', e);
     const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
-    return { message: `Failed to connect to the prediction backend. Make sure the backend is running. Details: ${errorMessage}`, error: true };
+    return { message: `Failed to connect to the prediction backend. Make sure the backend service is running. Details: ${errorMessage}`, error: true };
   }
 }
