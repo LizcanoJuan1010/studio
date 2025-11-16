@@ -4,6 +4,8 @@ import path from 'path';
 import { AllGlobalMetrics, ConfusionMatrix, Model, PerClassMetrics } from './types';
 
 const dataPath = path.join(process.cwd(), 'src', 'data');
+// Test directory path - may not exist in Docker builds (excluded by .dockerignore)
+// This is fine, the function will return an empty array if the directory doesn't exist
 const testImagePath = path.join(process.cwd(), 'src', 'Test');
 
 
@@ -63,27 +65,41 @@ export async function getLabels(): Promise<string[]> {
 
 export async function getTestImages(): Promise<{ id: string, description: string, imageUrl: string }[]> {
   try {
-    const fruitDirs = await fs.readdir(testImagePath);
+    // Limit the number of directories processed to avoid memory issues
+    const maxDirs = 50; // Process only first 50 fruit directories
+    const fruitDirs = (await fs.readdir(testImagePath)).slice(0, maxDirs);
+    
     const imagePromises = fruitDirs.map(async (fruitDir) => {
-      const dirPath = path.join(testImagePath, fruitDir);
-      const stats = await fs.stat(dirPath);
-      if (!stats.isDirectory()) return null;
-      
-      const files = await fs.readdir(dirPath);
-      const imageFile = files.find(file => /\.(jpg|jpeg|png)$/i.test(file));
-      
-      if (imageFile) {
-        const imagePath = path.join(dirPath, imageFile);
-        const imageBuffer = await fs.readFile(imagePath);
-        const imageBase64 = imageBuffer.toString('base64');
-        const mimeType = path.extname(imageFile).slice(1);
-        return {
-          id: fruitDir.replace(/\s/g, '-').toLowerCase(),
-          description: fruitDir,
-          imageUrl: `data:image/${mimeType};base64,${imageBase64}`,
-        };
+      try {
+        const dirPath = path.join(testImagePath, fruitDir);
+        const stats = await fs.stat(dirPath);
+        if (!stats.isDirectory()) return null;
+        
+        const files = await fs.readdir(dirPath);
+        const imageFile = files.find(file => /\.(jpg|jpeg|png)$/i.test(file));
+        
+        if (imageFile) {
+          const imagePath = path.join(dirPath, imageFile);
+          const imageBuffer = await fs.readFile(imagePath);
+          // Limit image size to prevent memory issues (max 2MB)
+          if (imageBuffer.length > 2 * 1024 * 1024) {
+            console.warn(`Skipping large image: ${fruitDir}/${imageFile} (${Math.round(imageBuffer.length / 1024)}KB)`);
+            return null;
+          }
+          const imageBase64 = imageBuffer.toString('base64');
+          const mimeType = path.extname(imageFile).slice(1).toLowerCase() === 'jpg' ? 'jpeg' : path.extname(imageFile).slice(1).toLowerCase();
+          return {
+            id: fruitDir.replace(/\s/g, '-').toLowerCase(),
+            description: fruitDir,
+            imageUrl: `data:image/${mimeType};base64,${imageBase64}`,
+          };
+        }
+        return null;
+      } catch (dirError) {
+        // Skip directories that can't be read
+        console.warn(`Skipping directory ${fruitDir}:`, dirError);
+        return null;
       }
-      return null;
     });
 
     const images = (await Promise.all(imagePromises)).filter(Boolean);
@@ -91,6 +107,7 @@ export async function getTestImages(): Promise<{ id: string, description: string
     return images;
   } catch (error) {
     console.error('Failed to read test images:', error);
+    // Return empty array instead of failing
     return [];
   }
 }

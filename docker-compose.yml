@@ -1,21 +1,17 @@
-version: '3.8'
-
 services:
   web:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "9002:3000"
+      - "3000:3000"
     environment:
       - API_HOST=api
       - API_PORT=8000
+      - NODE_ENV=production
     depends_on:
       - api
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.next
+    restart: unless-stopped
 
   api:
     build:
@@ -24,5 +20,8 @@ services:
     ports:
       - "8001:8000"
     volumes:
-      - ./backend:/app
+      - ./backend/models:/app/models
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
     command: uvicorn main:app --host 0.0.0.0 --port 8000

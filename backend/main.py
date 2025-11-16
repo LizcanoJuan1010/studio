@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import tensorflow as tf
 import joblib
@@ -30,35 +30,65 @@ def load_models():
 
     model_dir = './models'
     print(f"Loading models from: {os.path.abspath(model_dir)}")
+    
+    loaded_count = 0
+
+    # Load Keras models
+    try:
+        cnn_simple_path = os.path.join(model_dir, 'cnn_simple_model.keras')
+        if os.path.exists(cnn_simple_path):
+            MODELS['cnn_simple'] = tf.keras.models.load_model(cnn_simple_path)
+            print(f"✓ Loaded: cnn_simple_model.keras")
+            loaded_count += 1
+        else:
+            print(f"⚠ Skipped: cnn_simple_model.keras (not found)")
+    except Exception as e:
+        print(f"✗ Error loading cnn_simple_model.keras: {e}")
 
     try:
-        # Load Keras models
-        cnn_simple_path = os.path.join(model_dir, 'cnn_simple_model.keras')
-        if not os.path.exists(cnn_simple_path): raise FileNotFoundError(f"Model file not found: {cnn_simple_path}")
-        MODELS['cnn_simple'] = tf.keras.models.load_model(cnn_simple_path)
-
         cnn_transfer_path = os.path.join(model_dir, 'mobilenetv2_fruits_best.keras')
-        if not os.path.exists(cnn_transfer_path): raise FileNotFoundError(f"Model file not found: {cnn_transfer_path}")
-        MODELS['cnn_transfer'] = tf.keras.models.load_model(cnn_transfer_path)
-
-        # Load SVM bundle
-        svm_bundle_path = os.path.join(model_dir, "svm_model.joblib")
-        if not os.path.exists(svm_bundle_path): raise FileNotFoundError(f"Model file not found: {svm_bundle_path}")
-        svm_bundle = joblib.load(svm_bundle_path)
-        SCALER = svm_bundle["scaler"]
-        PCA = svm_bundle["pca"]
-        MODELS['svm'] = svm_bundle["model"]
-        CLASS_NAMES = svm_bundle["class_names"]
-
-        # Load XGBoost model
-        xgboost_path = os.path.join(model_dir, "boosting_model.pkl")
-        if not os.path.exists(xgboost_path): raise FileNotFoundError(f"Model file not found: {xgboost_path}")
-        MODELS['boosting'] = joblib.load(xgboost_path)
-        print("All models loaded successfully.")
-
+        if os.path.exists(cnn_transfer_path):
+            MODELS['cnn_transfer'] = tf.keras.models.load_model(cnn_transfer_path)
+            print(f"✓ Loaded: mobilenetv2_fruits_best.keras")
+            loaded_count += 1
+        else:
+            print(f"⚠ Skipped: mobilenetv2_fruits_best.keras (not found)")
     except Exception as e:
-        print(f"Error loading models: {e}")
-        raise
+        print(f"✗ Error loading mobilenetv2_fruits_best.keras: {e}")
+
+    # Load SVM bundle
+    try:
+        svm_bundle_path = os.path.join(model_dir, "svm_model.joblib")
+        if os.path.exists(svm_bundle_path):
+            svm_bundle = joblib.load(svm_bundle_path)
+            SCALER = svm_bundle["scaler"]
+            PCA = svm_bundle["pca"]
+            MODELS['svm'] = svm_bundle["model"]
+            CLASS_NAMES = svm_bundle["class_names"]
+            print(f"✓ Loaded: svm_model.joblib")
+            loaded_count += 1
+        else:
+            print(f"⚠ Skipped: svm_model.joblib (not found)")
+    except Exception as e:
+        print(f"✗ Error loading svm_model.joblib: {e}")
+        print(f"  Note: SVM model may require cuML or other dependencies")
+
+    # Load XGBoost model
+    try:
+        xgboost_path = os.path.join(model_dir, "boosting_model.pkl")
+        if os.path.exists(xgboost_path):
+            MODELS['boosting'] = joblib.load(xgboost_path)
+            print(f"✓ Loaded: boosting_model.pkl")
+            loaded_count += 1
+        else:
+            print(f"⚠ Skipped: boosting_model.pkl (not found)")
+    except Exception as e:
+        print(f"✗ Error loading boosting_model.pkl: {e}")
+
+    if loaded_count == 0:
+        raise RuntimeError("No models could be loaded! Please check your models directory.")
+    
+    print(f"✓ Successfully loaded {loaded_count} model(s).")
 
 load_models()
 
@@ -164,13 +194,37 @@ async def create_upload_file(file: UploadFile = File(...)):
     contents = await file.read()
     image = Image.open(io.BytesIO(contents)).convert('RGB')
     
-    # Run predictions for all models
-    cnn_simple_pred = await predict_cnn('cnn_simple', image.copy())
-    cnn_transfer_pred = await predict_cnn('cnn_transfer', image.copy())
-    svm_pred = await predict_svm(image.copy())
-    boosting_pred = await predict_boosting(image.copy())
+    results = []
     
-    return [cnn_simple_pred, cnn_transfer_pred, svm_pred, boosting_pred]
+    # Run predictions only for available models
+    if 'cnn_simple' in MODELS:
+        try:
+            results.append(await predict_cnn('cnn_simple', image.copy()))
+        except Exception as e:
+            print(f"Error predicting with cnn_simple: {e}")
+    
+    if 'cnn_transfer' in MODELS:
+        try:
+            results.append(await predict_cnn('cnn_transfer', image.copy()))
+        except Exception as e:
+            print(f"Error predicting with cnn_transfer: {e}")
+    
+    if 'svm' in MODELS and SCALER is not None and PCA is not None:
+        try:
+            results.append(await predict_svm(image.copy()))
+        except Exception as e:
+            print(f"Error predicting with svm: {e}")
+    
+    if 'boosting' in MODELS:
+        try:
+            results.append(await predict_boosting(image.copy()))
+        except Exception as e:
+            print(f"Error predicting with boosting: {e}")
+    
+    if not results:
+        raise HTTPException(status_code=503, detail="No models available for prediction")
+    
+    return results
 
 @app.get("/")
 def read_root():

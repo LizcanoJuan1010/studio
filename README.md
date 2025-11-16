@@ -8,14 +8,14 @@ This application is set up as a multi-container application managed by Docker Co
 
 -   **Frontend:** A Next.js application responsible for rendering the user interface. It's built with React, TypeScript, and styled using **Tailwind CSS** and **ShadCN UI** components.
 -   **Backend:** A FastAPI service written in Python. This backend is responsible for loading the machine learning models (TensorFlow/Keras, Scikit-learn) and exposing a prediction endpoint. This separation ensures that the heavy model inference does not block the web server.
--   **Containerization:** Both the frontend and backend are containerized and managed by Docker. `docker-compose` orchestrates the building and running of both services, including the network communication between them.
+-   **Containerization:** Both the frontend and backend are containerized and managed by Docker. `docker compose` orchestrates the building and running of both services, including the network communication between them.
 -   **Data Flow:** The Next.js frontend sends image data to the FastAPI backend for inference. The backend runs the predictions on all models and returns the results to the frontend for visualization.
 
 ## How to Run the Application
 
 ### Prerequisites
 
--   [Docker](https://www.docker.com/get-started) and Docker Compose
+-   [Docker](https://www.docker.com/get-started) and Docker Compose (v2 recommended - use `docker compose` command)
 
 ### Running with Docker
 
@@ -24,17 +24,17 @@ This is the recommended way to run the project.
 1.  **Build the Docker images:**
     Open your terminal in the project root and run:
     ```bash
-    docker-compose build
+    docker compose build
     ```
 
 2.  **Start the application:**
     ```bash
-    docker-compose up
+    docker compose up
     ```
-    You can add the `-d` flag (`docker-compose up -d`) to run the containers in the background.
+    You can add the `-d` flag (`docker compose up -d`) to run the containers in the background.
 
 3.  **Access the application:**
-    -   **Frontend:** The web application will be available at [http://localhost:9002](http://localhost:9002).
+    -   **Frontend:** The web application will be available at [http://localhost:3000](http://localhost:3000).
     -   **Backend API (for testing):** The FastAPI backend is available at [http://localhost:8001](http://localhost:8001). You can visit `http://localhost:8001/docs` for the API documentation.
 
 ## Project Structure

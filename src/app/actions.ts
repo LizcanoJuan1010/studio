@@ -4,8 +4,22 @@ import { z } from 'zod';
 import type { AllPredictionsResult, PredictionResult } from '@/lib/types';
 import { summarizePredictionResults } from '@/ai/flows/summarize-prediction-results';
 
+// Use a custom File validation that works in server-side Next.js
+const fileSchema = z.any().optional().refine(
+  (val) => {
+    if (!val) return true; // Optional, so undefined/null is OK
+    // In Next.js Server Actions, FormData File objects have type and size
+    return typeof val === 'object' && 
+           'name' in val && 
+           'size' in val && 
+           'type' in val &&
+           val instanceof Object;
+  },
+  { message: "Invalid file object" }
+);
+
 const schema = z.object({
-  image: z.instanceof(File).optional(),
+  image: fileSchema,
   imageUrl: z.string().optional(),
   selectedImageId: z.string().optional(),
 });
