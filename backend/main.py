@@ -31,22 +31,34 @@ def load_models():
     model_dir = './models'
     print(f"Loading models from: {os.path.abspath(model_dir)}")
 
-    # Load Keras models
-    MODELS['cnn_simple'] = tf.keras.models.load_model(os.path.join(model_dir, 'cnn_simple_model.keras'))
-    MODELS['cnn_transfer'] = tf.keras.models.load_model(os.path.join(model_dir, 'mobilenetv2_fruits_best.keras'))
+    try:
+        # Load Keras models
+        cnn_simple_path = os.path.join(model_dir, 'cnn_simple_model.keras')
+        if not os.path.exists(cnn_simple_path): raise FileNotFoundError(f"Model file not found: {cnn_simple_path}")
+        MODELS['cnn_simple'] = tf.keras.models.load_model(cnn_simple_path)
 
-    # Load SVM bundle
-    svm_bundle_path = os.path.join(model_dir, "svm_model.joblib")
-    svm_bundle = joblib.load(svm_bundle_path)
-    SCALER = svm_bundle["scaler"]
-    PCA = svm_bundle["pca"]
-    MODELS['svm'] = svm_bundle["model"]
-    CLASS_NAMES = svm_bundle["class_names"]
+        cnn_transfer_path = os.path.join(model_dir, 'mobilenetv2_fruits_best.keras')
+        if not os.path.exists(cnn_transfer_path): raise FileNotFoundError(f"Model file not found: {cnn_transfer_path}")
+        MODELS['cnn_transfer'] = tf.keras.models.load_model(cnn_transfer_path)
 
-    # Load XGBoost model
-    xgboost_path = os.path.join(model_dir, "boosting_model.pkl")
-    MODELS['boosting'] = joblib.load(xgboost_path)
-    print("All models loaded successfully.")
+        # Load SVM bundle
+        svm_bundle_path = os.path.join(model_dir, "svm_model.joblib")
+        if not os.path.exists(svm_bundle_path): raise FileNotFoundError(f"Model file not found: {svm_bundle_path}")
+        svm_bundle = joblib.load(svm_bundle_path)
+        SCALER = svm_bundle["scaler"]
+        PCA = svm_bundle["pca"]
+        MODELS['svm'] = svm_bundle["model"]
+        CLASS_NAMES = svm_bundle["class_names"]
+
+        # Load XGBoost model
+        xgboost_path = os.path.join(model_dir, "boosting_model.pkl")
+        if not os.path.exists(xgboost_path): raise FileNotFoundError(f"Model file not found: {xgboost_path}")
+        MODELS['boosting'] = joblib.load(xgboost_path)
+        print("All models loaded successfully.")
+
+    except Exception as e:
+        print(f"Error loading models: {e}")
+        raise
 
 load_models()
 
@@ -96,9 +108,7 @@ async def predict_svm(image: Image.Image):
     # Preprocess with scaler and PCA
     X_scaled = SCALER.transform(processed_image)
     X_pca = PCA.transform(X_scaled)
-
-    # Note: SVM in scikit-learn might not directly provide probabilities for all kernels without configuration.
-    # We will simulate this for consistency in the output format.
+    
     y_pred_proba = MODELS['svm'].predict_proba(X_pca)
     inference_time = (time.time() - start_time) * 1000
 
@@ -117,7 +127,7 @@ async def predict_svm(image: Image.Image):
     return {
         "model_id": "svm",
         "predicted_label": predicted_label,
-        "predicted_index": predicted_index,
+        "predicted_index": int(predicted_index),
         "probabilities": probabilities,
         "inference_time_ms": round(inference_time, 1),
     }
