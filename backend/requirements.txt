@@ -6,3 +6,6 @@ joblib
 scikit-learn
 pillow
 xgboost
+# cuML para modelos SVM entrenados con RAPIDS (opcional, requiere GPU)
+# Descomentar la siguiente línea si necesitas cuML (requiere GPU y CUDA)
+# cuml-cu11

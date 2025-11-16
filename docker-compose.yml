@@ -9,6 +9,8 @@ services:
       - API_HOST=api
       - API_PORT=8000
       - NODE_ENV=production
+    volumes:
+      - ./src/Test:/app/src/Test:ro
     depends_on:
       - api
     restart: unless-stopped
