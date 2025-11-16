@@ -1,9 +1,9 @@
 
 {
   "cnn_simple": {
-    "accuracy": 0.933,
-    "f1_macro": 0.92,
-    "f1_micro": 0.933,
+    "accuracy": 0.988,
+    "f1_macro": 0.9884,
+    "f1_micro": 0.988,
     "avg_inference_time_ms": 12.5,
     "model_size_mb": 20.3
   },
@@ -15,16 +15,16 @@
     "model_size_mb": 5.1
   },
   "svm": {
-    "accuracy": 0.891,
-    "f1_macro": 0.88,
-    "f1_micro": 0.891,
+    "accuracy": 0.8774,
+    "f1_macro": 0.8682,
+    "f1_micro": 0.8774,
     "avg_inference_time_ms": 5.2,
     "model_size_mb": 3.7
   },
   "boosting": {
-    "accuracy": 0.912,
-    "f1_macro": 0.9,
-    "f1_micro": 0.912,
+    "accuracy": 0.9975,
+    "f1_macro": 0.9975,
+    "f1_micro": 0.9975,
     "avg_inference_time_ms": 7.8,
     "model_size_mb": 8.1
   }
