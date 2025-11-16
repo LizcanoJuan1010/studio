@@ -1,13 +1,14 @@
 'use server';
 
 import { z } from 'zod';
-import { getLabels, getModels } from '@/lib/data';
-import type { AllPredictionsResult, PredictionResult, Model } from '@/lib/types';
+import { getLabels, getModels, getTestImages } from '@/lib/data';
+import type { AllPredictionsResult, PredictionResult, Model, TestImage } from '@/lib/types';
 import { summarizePredictionResults } from '@/ai/flows/summarize-prediction-results';
 
 const schema = z.object({
   image: z.instanceof(File).optional(),
   imageUrl: z.string().optional(),
+  selectedImageId: z.string().optional(),
 });
 
 type FormState = {
@@ -18,17 +19,17 @@ type FormState = {
   error?: boolean;
 };
 
-// Helper to shuffle array and get top probabilities
+// Helper to generate realistic mock probabilities for a given label
 function getMockProbabilities(labels: string[], predictedLabel: string): PredictionResult['probabilities'] {
   let remainingProb = 1.0;
   
   // Assign high probability to the predicted label
-  const predictedProb = Math.random() * 0.15 + 0.8; // 0.80 - 0.95
+  const predictedProb = Math.random() * 0.15 + 0.8; // 80% - 95%
   remainingProb -= predictedProb;
 
   const probabilities = [{ label: predictedLabel, prob: predictedProb, index: labels.indexOf(predictedLabel) }];
   
-  // Get a few other random labels, but ensure they are not the predicted label
+  // Get a few other random labels, ensuring they are not the predicted one
   const otherLabels = labels.filter(l => l !== predictedLabel);
   const shuffledLabels = otherLabels.sort(() => 0.5 - Math.random());
 
@@ -40,9 +41,9 @@ function getMockProbabilities(labels: string[], predictedLabel: string): Predict
           remainingProb -= prob;
       }
   }
-  // Add a placeholder for the rest of the probability if needed, or just let it be.
   
-  return probabilities.sort((a, b) => b.prob - a.prob);
+  // Return top 3 probabilities sorted
+  return probabilities.sort((a, b) => b.prob - a.prob).slice(0, 3);
 }
 
 
@@ -53,13 +54,14 @@ export async function predictAllModels(
   const validatedFields = schema.safeParse({
     image: formData.get('image'),
     imageUrl: formData.get('imageUrl'),
+    selectedImageId: formData.get('selectedImageId')
   });
 
   if (!validatedFields.success) {
     return { message: 'Invalid input.', error: true };
   }
   
-  const { image, imageUrl } = validatedFields.data;
+  const { image, imageUrl, selectedImageId } = validatedFields.data;
 
   if (!image && !imageUrl) {
     return { message: 'Please upload or select an image.', error: true };
@@ -69,18 +71,12 @@ export async function predictAllModels(
       return { message: 'Please upload an image.', error: true };
   }
 
-  let imageBuffer: Buffer;
   let imagePreview: string | undefined;
-
   if (imageUrl) {
-    // Handle sample images (Data URL)
-    const base64Data = imageUrl.split(',')[1];
-    imageBuffer = Buffer.from(base64Data, 'base64');
     imagePreview = imageUrl;
   } else if (image) {
-    // Handle uploaded file
     const arrayBuffer = await image.arrayBuffer();
-    imageBuffer = Buffer.from(arrayBuffer);
+    const imageBuffer = Buffer.from(arrayBuffer);
     imagePreview = `data:${image.type};base64,${imageBuffer.toString('base64')}`;
   } else {
     return { message: 'No image provided.', error: true };
@@ -88,28 +84,28 @@ export async function predictAllModels(
 
 
   try {
-    const [models, labels] = await Promise.all([getModels(), getLabels()]);
+    const [models, labels, testImages] = await Promise.all([getModels(), getLabels(), getTestImages()]);
     
-    // MOCK INFERENCE FOR ALL MODELS - Forcing a more realistic prediction
+    // --- SMART MOCK INFERENCE ---
+    let predictedLabel: string;
+    
+    if (selectedImageId) {
+        // If a sample image was used, "predict" its actual label
+        const selectedTestImage = testImages.find(img => img.id === selectedImageId);
+        predictedLabel = selectedTestImage ? selectedTestImage.description : "Strawberry Wedge 1";
+    } else {
+        // If an image was uploaded, default to a visually similar class from the list for a better demo
+        predictedLabel = "Tomato Cherry Maroon 1";
+    }
+
+    if (!labels.includes(predictedLabel)) {
+        // Fallback if the determined label doesn't exist in our labels list
+        predictedLabel = labels[Math.floor(Math.random() * labels.length)];
+    }
+    
+    // MOCK INFERENCE FOR ALL MODELS
     const predictionPromises = models.map(async (model): Promise<PredictionResult> => {
       const startTime = performance.now();
-      
-      // Force prediction to be Strawberry for this demonstration
-      const predictedLabel = "Strawberry Wedge 1";
-      if (!labels.includes(predictedLabel)) {
-        // Fallback if the label doesn't exist
-        const randomLabel = labels[Math.floor(Math.random() * labels.length)];
-        const probabilities = getMockProbabilities(labels, randomLabel);
-        const endTime = performance.now();
-        const inferenceTime = endTime - startTime + (Math.random() * 15 + 5);
-        return {
-          model_id: model.id,
-          predicted_label: randomLabel,
-          predicted_index: labels.indexOf(randomLabel),
-          probabilities,
-          inference_time_ms: parseFloat(inferenceTime.toFixed(1)),
-        };
-      }
       
       const probabilities = getMockProbabilities(labels, predictedLabel);
       const endTime = performance.now();

@@ -60,8 +60,7 @@ export function LiveTestClient({ testImages }: { testImages: TestImage[] }) {
     }
   };
 
-  // When the form is submitted, if a sample image is selected,
-  // we add its URL to the form data before the action is executed.
+  // When the form is submitted, add necessary data to the form.
   const handleFormAction = (formData: FormData) => {
     const file = formData.get('image') as File;
     const hasFile = file && file.size > 0;
@@ -72,14 +71,13 @@ export function LiveTestClient({ testImages }: { testImages: TestImage[] }) {
             title: "No Image Selected",
             description: "Please select a sample image or upload your own.",
         });
-        // By returning here, we prevent the form action from being called.
-        // We'd ideally want to prevent submission altogether, but that's more complex with form actions.
         return; 
     }
 
     if (selectedImage) {
         formData.set('imageUrl', selectedImage.imageUrl);
-        // If a sample is selected, we prioritize it over the file input.
+        formData.set('selectedImageId', selectedImage.id);
+        // Prioritize sample image over file input if both exist
         if (hasFile) {
             formData.delete('image');
         }
@@ -244,5 +242,3 @@ export function LiveTestClient({ testImages }: { testImages: TestImage[] }) {
     </div>
   );
 }
-
-    
