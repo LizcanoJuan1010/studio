@@ -13,10 +13,7 @@ type MetricOption = {
 
 const metricOptions: MetricOption[] = [
   { value: 'accuracy', label: 'Accuracy' },
-  { value: 'f1_macro', label: 'F1 Macro' },
-  { value: 'f1_micro', label: 'F1 Micro' },
-  { value: 'avg_inference_time_ms', label: 'Avg. Inference Time (ms)' },
-  { value: 'model_size_mb', label: 'Model Size (MB)' },
+  { value: 'f1_macro', label: 'F1 Score (Macro)' },
 ];
 
 const modelNames: Record<Model['id'], string> = {
@@ -87,8 +84,6 @@ export function CompareModelsClient({ metrics }: { metrics: AllGlobalMetrics }) 
                   <TableHead>Model</TableHead>
                   <TableHead className="text-right">Accuracy</TableHead>
                   <TableHead className="text-right">F1 (Macro)</TableHead>
-                  <TableHead className="text-right">Inference (ms)</TableHead>
-                  <TableHead className="text-right">Size (MB)</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -97,8 +92,6 @@ export function CompareModelsClient({ metrics }: { metrics: AllGlobalMetrics }) 
                     <TableCell className="font-medium">{modelNames[modelId as Model['id']]}</TableCell>
                     <TableCell className="text-right">{(modelMetrics.accuracy * 100).toFixed(1)}%</TableCell>
                     <TableCell className="text-right">{modelMetrics.f1_macro.toFixed(3)}</TableCell>
-                    <TableCell className="text-right">{modelMetrics.avg_inference_time_ms.toFixed(1)}</TableCell>
-                    <TableCell className="text-right">{modelMetrics.model_size_mb.toFixed(1)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
