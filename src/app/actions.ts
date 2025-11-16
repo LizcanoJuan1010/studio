@@ -38,12 +38,9 @@ export async function predictAllModels(
     return { message: 'Please upload or select an image.', error: true };
   }
 
-  let imagePreview: string | undefined;
-  let apiFormData = new FormData();
   let fileToUpload: File;
 
   if (imageUrl) {
-    imagePreview = imageUrl;
     try {
       const response = await fetch(imageUrl);
       if (!response.ok) throw new Error('Failed to fetch sample image');
@@ -54,23 +51,24 @@ export async function predictAllModels(
       return { message: `Could not load sample image: ${errorMessage}`, error: true };
     }
   } else if (image) {
-    imagePreview = URL.createObjectURL(image);
     fileToUpload = image;
   } else {
     return { message: 'No image provided.', error: true };
   }
   
+  const apiFormData = new FormData();
   apiFormData.append('file', fileToUpload);
 
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/predict';
-    console.log(`Calling API at: ${apiUrl}`);
+    const apiHost = process.env.API_HOST || 'localhost';
+    const apiPort = process.env.API_PORT || '8001';
+    const apiUrl = `http://${apiHost}:${apiPort}/predict/`;
+    
+    console.log(`Calling prediction API at: ${apiUrl}`);
     
     const response = await fetch(apiUrl, {
         method: 'POST',
         body: apiFormData,
-        // Important: Don't set Content-Type header manually when using FormData
-        // The browser will set it with the correct boundary.
     });
 
     if (!response.ok) {
