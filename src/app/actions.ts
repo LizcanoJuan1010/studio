@@ -1,7 +1,7 @@
 'use server';
 
 import { z } from 'zod';
-import { getLabels, getModels, getTestImages } from '@/lib/data';
+import { getLabels, getTestImages } from '@/lib/data';
 import type { AllPredictionsResult, PredictionResult, Model, TestImage } from '@/lib/types';
 import { summarizePredictionResults } from '@/ai/flows/summarize-prediction-results';
 
@@ -19,34 +19,6 @@ type FormState = {
   error?: boolean;
 };
 
-// Helper to generate realistic mock probabilities for a given label
-function getMockProbabilities(labels: string[], predictedLabel: string): PredictionResult['probabilities'] {
-  let remainingProb = 1.0;
-  
-  // Assign high probability to the predicted label
-  const predictedProb = Math.random() * 0.15 + 0.8; // 80% - 95%
-  remainingProb -= predictedProb;
-
-  const probabilities = [{ label: predictedLabel, prob: predictedProb, index: labels.indexOf(predictedLabel) }];
-  
-  // Get a few other random labels, ensuring they are not the predicted one
-  const otherLabels = labels.filter(l => l !== predictedLabel);
-  const shuffledLabels = otherLabels.sort(() => 0.5 - Math.random());
-
-  // Distribute remaining probability among a few other labels
-  for (let i = 0; i < 2; i++) {
-      if (shuffledLabels[i]) {
-          const prob = Math.random() * remainingProb * 0.6; // Distribute a portion of remaining
-          probabilities.push({ label: shuffledLabels[i], prob, index: labels.indexOf(shuffledLabels[i]) });
-          remainingProb -= prob;
-      }
-  }
-  
-  // Return top 3 probabilities sorted
-  return probabilities.sort((a, b) => b.prob - a.prob).slice(0, 3);
-}
-
-
 export async function predictAllModels(
   prevState: FormState,
   formData: FormData
@@ -63,64 +35,49 @@ export async function predictAllModels(
   
   const { image, imageUrl, selectedImageId } = validatedFields.data;
 
-  if (!image && !imageUrl) {
+  if ((!image || image.size === 0) && !imageUrl) {
     return { message: 'Please upload or select an image.', error: true };
-  }
-  
-  if (image && image.size === 0 && !imageUrl) {
-      return { message: 'Please upload an image.', error: true };
   }
 
   let imagePreview: string | undefined;
+  let apiFormData = new FormData();
+
   if (imageUrl) {
     imagePreview = imageUrl;
+    // Since we're using a sample image, we need to fetch it and create a File object
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
+    const fileName = selectedImageId || 'image.jpg';
+    const file = new File([blob], fileName, { type: blob.type });
+    apiFormData.append('file', file);
+
   } else if (image) {
     const arrayBuffer = await image.arrayBuffer();
     const imageBuffer = Buffer.from(arrayBuffer);
     imagePreview = `data:${image.type};base64,${imageBuffer.toString('base64')}`;
+    apiFormData.append('file', image);
   } else {
     return { message: 'No image provided.', error: true };
   }
 
 
   try {
-    const [models, labels, testImages] = await Promise.all([getModels(), getLabels(), getTestImages()]);
-    
-    // --- SMART MOCK INFERENCE ---
-    let predictedLabel: string;
-    
-    if (selectedImageId) {
-        // If a sample image was used, "predict" its actual label
-        const selectedTestImage = testImages.find(img => img.id === selectedImageId);
-        predictedLabel = selectedTestImage ? selectedTestImage.description : "Strawberry Wedge 1";
-    } else {
-        // If an image was uploaded, default to a visually similar class from the list for a better demo
-        predictedLabel = "Tomato Cherry Maroon 1";
-    }
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://api:8000';
+    console.log(`Calling API at: ${apiUrl}/predict/`);
 
-    if (!labels.includes(predictedLabel)) {
-        // Fallback if the determined label doesn't exist in our labels list
-        predictedLabel = labels[Math.floor(Math.random() * labels.length)];
-    }
-    
-    // MOCK INFERENCE FOR ALL MODELS
-    const predictionPromises = models.map(async (model): Promise<PredictionResult> => {
-      const startTime = performance.now();
-      
-      const probabilities = getMockProbabilities(labels, predictedLabel);
-      const endTime = performance.now();
-      const inferenceTime = endTime - startTime + (Math.random() * 15 + 5);
-
-      return {
-        model_id: model.id,
-        predicted_label: predictedLabel,
-        predicted_index: labels.indexOf(predictedLabel),
-        probabilities,
-        inference_time_ms: parseFloat(inferenceTime.toFixed(1)),
-      };
+    const response = await fetch(`${apiUrl}/predict/`, {
+        method: 'POST',
+        body: apiFormData,
     });
 
-    const predictionResults = await Promise.all(predictionPromises);
+    if (!response.ok) {
+        const errorBody = await response.text();
+        console.error('API Error Response:', errorBody);
+        throw new Error(`Prediction failed: ${response.statusText}`);
+    }
+    
+    const predictionResults: PredictionResult[] = await response.json();
+    
     const allPredictions: AllPredictionsResult = { results: predictionResults };
     
     // Call GenAI flow for summary
@@ -135,6 +92,6 @@ export async function predictAllModels(
   } catch (e) {
     console.error(e);
     const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred during prediction.';
-    return { message: errorMessage, error: true };
+    return { message: `Failed to connect to the prediction backend. ${errorMessage}`, error: true };
   }
 }
