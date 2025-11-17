@@ -20,7 +20,7 @@ const modelNames: Record<Model['id'], string> = {
     cnn_simple: "CNN (Simple)",
     cnn_transfer: "CNN (Transfer Learning)",
     svm: "SVM",
-    boosting: "XGBoost",
+    boosting: "Random Forest",
 }
 
 export function CompareModelsClient({ metrics }: { metrics: AllGlobalMetrics }) {

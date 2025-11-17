@@ -61,29 +61,30 @@ export function LiveTestClient({ testImages }: { testImages: TestImage[] }) {
   };
 
   // When the form is submitted, add necessary data to the form.
-  const handleFormAction = (formData: FormData) => {
-    const file = formData.get('image') as File;
-    const hasFile = file && file.size > 0;
+const handleFormAction = (formData: FormData) => {
+  const file = formData.get('image') as File;
+  const hasFile = file && file.size > 0;
 
-    if (!selectedImage && !hasFile) {
-        toast({
-            variant: "destructive",
-            title: "No Image Selected",
-            description: "Please select a sample image or upload your own.",
-        });
-        return; 
-    }
+  if (!selectedImage && !hasFile) {
+    toast({
+      variant: "destructive",
+      title: "No Image Selected",
+      description: "Please select a sample image or upload your own.",
+    });
+    return;
+  }
 
-    if (selectedImage) {
-        formData.set('imageUrl', selectedImage.imageUrl);
-        formData.set('selectedImageId', selectedImage.id);
-        // Prioritize sample image over file input if both exist
-        if (hasFile) {
-            formData.delete('image');
-        }
+  if (selectedImage) {
+    formData.set('selectedImageId', String(selectedImage.id));
+    formData.set('sampleDataUrl', selectedImage.imageUrl);  // <--- importante
+    if (hasFile) {
+      formData.delete('image'); // prioriza la muestra
     }
-    formAction(formData);
-  };
+  }
+
+  formAction(formData);
+};
+
 
 
   return (

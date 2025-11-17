@@ -14,7 +14,7 @@ const modelNames: Record<Model['id'], string> = {
     cnn_simple: "CNN Simple",
     cnn_transfer: "CNN Transfer",
     svm: "SVM",
-    boosting: "XGBoost",
+    boosting: "Random Forest",
 }
 
 const formatters: Record<keyof AllGlobalMetrics['cnn_simple'], (value: number) => string> = {

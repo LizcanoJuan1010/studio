@@ -20,7 +20,7 @@
   },
   {
     "id": "boosting",
-    "name": "XGBoost",
+    "name": "Random Forest",
     "type": "boosting",
     "file": "boosting_model.pkl"
   }

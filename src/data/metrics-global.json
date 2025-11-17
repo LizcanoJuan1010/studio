@@ -22,9 +22,9 @@
     "model_size_mb": 3.7
   },
   "boosting": {
-    "accuracy": 0.9975,
-    "f1_macro": 0.9975,
-    "f1_micro": 0.9975,
+    "accuracy": 0.8663,
+    "f1_macro": 0.8573,
+    "f1_micro": 0.8573,
     "avg_inference_time_ms": 7.8,
     "model_size_mb": 8.1
   }

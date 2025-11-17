@@ -1,119 +1,135 @@
 'use server';
 
-import { z } from 'zod';
-import type { AllPredictionsResult, PredictionResult } from '@/lib/types';
-import { summarizePredictionResults } from '@/ai/flows/summarize-prediction-results';
-
-// Use a custom File validation that works in server-side Next.js
-const fileSchema = z.any().optional().refine(
-  (val) => {
-    if (!val) return true; // Optional, so undefined/null is OK
-    // In Next.js Server Actions, FormData File objects have type and size
-    return typeof val === 'object' && 
-           'name' in val && 
-           'size' in val && 
-           'type' in val &&
-           val instanceof Object;
-  },
-  { message: "Invalid file object" }
-);
-
-const schema = z.object({
-  image: fileSchema,
-  imageUrl: z.string().optional(),
-  selectedImageId: z.string().optional(),
-});
-
-type FormState = {
-  message: string;
-  predictions?: AllPredictionsResult;
-  summary?: string;
-  imagePreview?: string;
-  error?: boolean;
+// ================================
+// Tipos de datos (coinciden con el backend)
+// ================================
+export type ProbabilityItem = {
+  label: string;
+  index: number;
+  prob: number;
 };
 
-export async function predictAllModels(
-  prevState: FormState,
-  formData: FormData
-): Promise<FormState> {
-  const validatedFields = schema.safeParse({
-    image: formData.get('image'),
-    imageUrl: formData.get('imageUrl'),
-    selectedImageId: formData.get('selectedImageId')
+export type ModelPrediction = {
+  model_id: string;
+  predicted_label: string;
+  predicted_index: number;
+  probabilities: ProbabilityItem[];
+  inference_time_ms: number;
+};
+
+export type PredictionResponse = ModelPrediction[];
+
+// ================================
+// Estado que usa LiveTestClient
+// ================================
+export type PredictionState = {
+  message: string;
+  error: boolean;
+  predictions?: { results: PredictionResponse } | undefined;
+  summary?: string | null;         // lo dejamos pero siempre será null
+  imagePreview?: string | null;
+};
+
+// ================================
+// Config de la API (FastAPI en Docker)
+// ================================
+const API_HOST = process.env.API_HOST ?? 'api';   // nombre del servicio en docker-compose
+const API_PORT = process.env.API_PORT ?? '8000';
+const API_BASE_URL = `http://${API_HOST}:${API_PORT}`;
+
+// ================================
+// Llamada genérica al backend
+// ================================
+async function callPredictAPI(fd: FormData): Promise<PredictionResponse> {
+  const res = await fetch(`${API_BASE_URL}/predict/`, {
+    method: 'POST',
+    body: fd,
   });
 
-  if (!validatedFields.success) {
-    return { message: 'Invalid input.', error: true };
-  }
-  
-  const { image, imageUrl } = validatedFields.data;
-
-  if ((!image || image.size === 0) && !imageUrl) {
-    return { message: 'Please upload or select an image.', error: true };
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`API error ${res.status}: ${text || res.statusText}`);
   }
 
-  let fileToUpload: File;
+  return (await res.json()) as PredictionResponse;
+}
 
-  if (imageUrl) {
-    try {
-      // For sample images, fetch the data from the base64 URL
-      const response = await fetch(imageUrl);
-      if (!response.ok) throw new Error('Failed to fetch sample image');
-      const blob = await response.blob();
-      fileToUpload = new File([blob], 'image.jpg', { type: blob.type });
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : 'Unknown error fetching sample image.';
-      return { message: `Could not load sample image: ${errorMessage}`, error: true };
-    }
-  } else if (image) {
-    fileToUpload = image;
-  } else {
-    return { message: 'No image provided.', error: true };
-  }
-  
-  const apiFormData = new FormData();
-  apiFormData.append('file', fileToUpload);
-
+// ================================
+// Acción principal que usa LiveTestClient
+// ================================
+export async function predictAllModels(
+  _prevState: PredictionState,
+  formData: FormData
+): Promise<PredictionState> {
   try {
-    // Docker networking: 'api' is the service name, port 8000 is internal
-    const apiHost = process.env.API_HOST || 'localhost';
-    const apiPort = process.env.API_PORT || '8001';
-    const apiUrl = `http://${apiHost}:${apiPort}/predict/`;
-    
-    console.log(`Calling prediction API at: ${apiUrl}`);
-    
-    const response = await fetch(apiUrl, {
-        method: 'POST',
-        body: apiFormData,
-    });
+    const fileEntry = formData.get('image') as any;
+    const sampleDataUrl = formData.get('sampleDataUrl');
 
-    if (!response.ok) {
-        const errorBody = await response.text();
-        console.error('API Error Response:', errorBody);
-        throw new Error(`Prediction request failed with status ${response.status}: ${response.statusText}`);
+    let blob: Blob | null = null;
+    let preview: string | null = null;
+
+    // 1) Caso: archivo subido por el usuario
+    if (
+      fileEntry &&
+      typeof fileEntry.arrayBuffer === 'function' &&
+      typeof fileEntry.size === 'number' &&
+      fileEntry.size > 0
+    ) {
+      const file = fileEntry as any;
+      blob = file as Blob;
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const mime = (file.type as string) || 'image/jpeg';
+      const base64 = buffer.toString('base64');
+      preview = `data:${mime};base64,${base64}`;
     }
-    
-    const predictionResults: PredictionResult[] = await response.json();
-    
-    const allPredictions: AllPredictionsResult = { results: predictionResults };
-    
-    // Call GenAI flow for summary
-    const aiSummary = await summarizePredictionResults({ results: predictionResults });
-    
-    // Convert local URL to base64 for state to avoid client-side issues
-    const imageBuffer = await fileToUpload.arrayBuffer();
-    const imageBase64 = Buffer.from(imageBuffer).toString('base64');
-    const imagePreviewForState = `data:${fileToUpload.type};base64,${imageBase64}`;
+
+    // 2) Caso: imagen de ejemplo → nos llega como dataURL desde el cliente
+    else if (typeof sampleDataUrl === 'string' && sampleDataUrl.startsWith('data:')) {
+      const [meta, base64data] = sampleDataUrl.split(',');
+      const mimeMatch = /data:(.*);base64/.exec(meta);
+      const mime = mimeMatch?.[1] || 'image/jpeg';
+
+      const buffer = Buffer.from(base64data, 'base64');
+      blob = new Blob([buffer], { type: mime });
+
+      // Para la UI usamos el mismo dataURL
+      preview = sampleDataUrl;
+    }
+
+    // 3) Ni archivo ni muestra
+    else {
+      return {
+        message: 'No image provided (neither upload nor sample).',
+        error: true,
+        predictions: undefined,
+        summary: null,
+        imagePreview: null,
+      };
+    }
+
+    // En este punto siempre tenemos un Blob válido
+    const fd = new FormData();
+    fd.append('file', blob!, 'image.jpg');
+
+    // Llamar a FastAPI
+    const results = await callPredictAPI(fd);
 
     return {
       message: 'Prediction successful.',
-      predictions: allPredictions,
-      summary: aiSummary.summary,
-      imagePreview: imagePreviewForState,
+      error: false,
+      predictions: { results },
+      summary: null,          // 👈 nada de IA externa, siempre null
+      imagePreview: preview,
     };
-  } catch (e) {
-    console.error('Error during prediction fetch:', e);
-    const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
-    return { message: `Failed to connect to the prediction backend. Make sure the backend service is running. Details: ${errorMessage}`, error: true };
+  } catch (e: any) {
+    console.error('Error in predictAllModels:', e);
+    return {
+      message: e?.message ?? 'Unexpected error while predicting.',
+      error: true,
+      predictions: undefined,
+      summary: null,
+      imagePreview: null,
+    };
   }
 }

@@ -21,11 +21,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+TARGET_CLASSES = [
+    'Apple Pink Lady 1','Apricot 1','Avocado 1','Banana 4','Beans 1','Beetroot 1','Blackberrie 2',
+    'Blueberry 1','Cabbage red 1','Cactus fruit red 1','Caju seed 1','Cantaloupe 1','Carambula 1',
+    'Carrot 1','Cauliflower 1','Cherimoya 1','Cherry 1','Chestnut 1','Clementine 1','Cocos 1',
+    'Corn Husk 1','Cucumber Ripe 1','Dates 1','Eggplant 1','Fig 1','Ginger Root 1','Gooseberry 1',
+    'Granadilla 1','Grape Pink 1','Grapefruit Pink 1','Guava 1','Hazelnut 1','Huckleberry 1',
+    'Kaki 1','Kiwi 1','Kohlrabi 1','Kumquats 1','Lemon Meyer 1','Limes 1','Lychee 1','Mandarine 1',
+    'Mango Red 1','Mangostan 1','Maracuja 1','Melon Piel de Sapo 1','Mulberry 1','Nectarine Flat 2',
+    'Nut 1','Onion 2','Orange 1','Papaya 1','Passion Fruit 1','Peach Flat 1','Pear 5','Pepino 1',
+    'Pepper Yellow 1','Physalis with Husk 1','Pineapple Mini 1','Pistachio 1','Pitahaya Red 1',
+    'Plum 2','Pomegranate 1','Pomelo Sweetie 1','Potato Sweet 1','Quince 1','Rambutan 1','Raspberry 1',
+    'Redcurrant 1','Salak 1','Strawberry Wedge 1','Tamarillo 1','Tangelo 1','Tomato Cherry Orange 1',
+    'Walnut 1','Watermelon 1','Zucchini 1','Cherry 2','Apple 6','Grape White 2','Grape White 1',
+    'Apple 17','Cherry 3','Potato White 1','Apple 8','Peach 6','Tomato 1','Tomato Cherry Maroon 1',
+    'Apple 13','Cherry Sour 1','Avocado Black 1','Mango 1','Cabbage white 1','Cherry Wax Red 1',
+    'Cherry Rainier 3','Tomato 3','Apple Red Yellow 1','Apple Rotten 1','Cucumber 10','Nut 4','Onion Red 2'
+]
 # --- Global model state ---
 MODELS = {}
 SCALER = None
 PCA = None
-CLASS_NAMES = []
+CLASS_NAMES = TARGET_CLASSES.copy()
 
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_DIR = BASE_DIR / "models"
@@ -281,8 +298,14 @@ def preprocess_image_for_svm_boosting(image: Image.Image, size=(64, 64)):
 
 
 async def predict_cnn(model_id: str, image: Image.Image):
+    # 👇 Elegimos el tamaño según el modelo
+    if model_id == "cnn_transfer":
+        size = (160, 160)   # mobilenetv2_fruits_best.keras
+    else:
+        size = (100, 100)   # cnn_simple_model.keras u otros que uses a 100x100
+
     start_time = time.time()
-    processed_image = preprocess_image_for_cnn(image)
+    processed_image = preprocess_image_for_cnn(image, size=size)
     predictions = MODELS[model_id].predict(processed_image)
     inference_time = (time.time() - start_time) * 1000
 
@@ -290,12 +313,18 @@ async def predict_cnn(model_id: str, image: Image.Image):
     top_probs = [predictions[0][i] for i in top_indices]
 
     probabilities = [
-        {"label": _get_label(i), "index": int(i), "prob": float(p)}
+        {
+            "label": CLASS_NAMES[int(i)] if CLASS_NAMES else str(int(i)),
+            "index": int(i),
+            "prob": float(p),
+        }
         for i, p in zip(top_indices, top_probs)
     ]
 
     predicted_index = int(top_indices[0])
-    predicted_label = _get_label(predicted_index)
+    predicted_label = (
+        CLASS_NAMES[predicted_index] if CLASS_NAMES else str(predicted_index)
+    )
 
     return {
         "model_id": model_id,
@@ -304,6 +333,7 @@ async def predict_cnn(model_id: str, image: Image.Image):
         "probabilities": probabilities,
         "inference_time_ms": round(inference_time, 1),
     }
+
 
 
 async def predict_svm(image: Image.Image):
